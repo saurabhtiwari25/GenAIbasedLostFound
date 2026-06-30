@@ -148,4 +148,10 @@ public class ItemController {
         return ResponseEntity.ok("Item resolved and deleted successfully");
     }
 
+    @PostMapping("/{sourceId}/confirm-match/{matchId}")
+    public ResponseEntity<String> confirmMatch(@PathVariable Long sourceId, @PathVariable Long matchId) {
+        log.info("Confirming match between item {} and {}", sourceId, matchId);
+        itemService.confirmMatch(sourceId, matchId);
+        return ResponseEntity.ok("Match confirmed and items resolved");
+    }
 }

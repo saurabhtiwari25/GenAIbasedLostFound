@@ -170,6 +170,42 @@ const ItemDetail = () => {
         ), { duration: Infinity });
     };
 
+    const handleConfirmMatch = (matchId) => {
+        toast((t) => (
+            <div>
+                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Confirm this is an exact match? Both items will be resolved.</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            setLoadingMatches(true);
+                            try {
+                                await ItemService.confirmMatch(itemId, matchId);
+                                toast.success("Match confirmed successfully!");
+                                navigate('/');
+                            } catch (err) {
+                                console.error("Error confirming match", err);
+                                toast.error("Failed to confirm match.");
+                                setLoadingMatches(false);
+                            }
+                        }}
+                        className="primary-btn btn-ai"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Confirm
+                    </button>
+                    <button 
+                        onClick={() => toast.dismiss(t.id)}
+                        className="primary-btn btn-cancel"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: Infinity });
+    };
+
     const handleMessageSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -337,11 +373,19 @@ const ItemDetail = () => {
                                         <h4>Suggested Matches ({matches.length})</h4>
                                         <div className="smart-match-grid">
                                             {matches.map(matchItem => (
-                                                <ItemCard 
-                                                    key={matchItem.id} 
-                                                    item={matchItem} 
-                                                    onClick={() => navigate(`/item/${matchItem.id}`)}
-                                                />
+                                                <div key={matchItem.id} className="smart-match-card-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <ItemCard 
+                                                        item={matchItem} 
+                                                        onClick={() => navigate(`/item/${matchItem.id}`)}
+                                                    />
+                                                    <button 
+                                                        onClick={() => handleConfirmMatch(matchItem.id)}
+                                                        className="primary-btn btn-ai"
+                                                        style={{ width: '100%', fontSize: '0.9rem', padding: '8px' }}
+                                                    >
+                                                        ✅ Confirm Match
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>

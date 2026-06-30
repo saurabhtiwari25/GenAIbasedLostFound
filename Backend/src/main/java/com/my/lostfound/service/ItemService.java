@@ -165,37 +165,42 @@ public class ItemService {
                     .map(this::mapToDTO)
                     .collect(Collectors.toList());
 
-            if (!matchedItems.isEmpty()) {
-                for (Item matchItem : matchedItems) {
-                    if (sourceItem.isFound()) {
-                        User lostItemReporter = matchItem.getReporter();
-                        if (lostItemReporter != null) {
-                            String message = String.format("Great news! Your lost item '%s' has been matched with a found item by %s at '%s'. Contact number: %s | Email: %s", 
-                                    matchItem.getTitle(), sourceItem.getReporter().getName(), sourceItem.getLocation(), sourceItem.getContactInfo(), sourceItem.getReporter().getEmail());
-                            notificationService.createNotification(lostItemReporter, message);
-                        }
-                    } else {
-                        User lostItemReporter = sourceItem.getReporter();
-                        User founder = matchItem.getReporter();
-                        String founderEmail = (founder != null) ? founder.getEmail() : "Not available";
-                        String founderName = (founder != null) ? founder.getName() : "Someone";
-                        
-                        String message = String.format("Great news! Your lost item '%s' has been matched with a found item by %s at '%s'. Contact number: %s | Email: %s", 
-                                sourceItem.getTitle(), founderName, matchItem.getLocation(), matchItem.getContactInfo(), founderEmail);
-                        notificationService.createNotification(lostItemReporter, message);
-                    }
-                    itemRepository.deleteById(matchItem.getId());
-                }
-                itemRepository.deleteById(sourceItem.getId());
-                log.info("Smart match successful. Deleted source item {} and matched items.", sourceItem.getId());
-            }
-
             return resultDtos;
 
         } catch (Exception e) {
             log.error("Failed to parse AI response: {}", response, e);
             return List.of();
         }
+    }
+
+    public void confirmMatch(Long sourceId, Long matchId) {
+        log.info("User confirmed match between source {} and match {}", sourceId, matchId);
+        Item sourceItem = itemRepository.findById(sourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Source item not found"));
+        Item matchItem = itemRepository.findById(matchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Matched item not found"));
+
+        if (sourceItem.isFound()) {
+            User lostItemReporter = matchItem.getReporter();
+            if (lostItemReporter != null) {
+                String message = String.format("Great news! Your lost item '%s' has been confirmed as a match with a found item by %s at '%s'. Contact number: %s | Email: %s", 
+                        matchItem.getTitle(), sourceItem.getReporter().getName(), sourceItem.getLocation(), sourceItem.getContactInfo(), sourceItem.getReporter().getEmail());
+                notificationService.createNotification(lostItemReporter, message);
+            }
+        } else {
+            User lostItemReporter = sourceItem.getReporter();
+            User founder = matchItem.getReporter();
+            String founderEmail = (founder != null) ? founder.getEmail() : "Not available";
+            String founderName = (founder != null) ? founder.getName() : "Someone";
+            
+            String message = String.format("Great news! Your lost item '%s' has been confirmed as a match with a found item by %s at '%s'. Contact number: %s | Email: %s", 
+                    sourceItem.getTitle(), founderName, matchItem.getLocation(), matchItem.getContactInfo(), founderEmail);
+            notificationService.createNotification(lostItemReporter, message);
+        }
+        
+        itemRepository.deleteById(sourceItem.getId());
+        itemRepository.deleteById(matchItem.getId());
+        log.info("Confirmed match successful. Deleted source item {} and matched item {}", sourceId, matchId);
     }
 
 
@@ -381,7 +386,14 @@ public class ItemService {
     private void performAutoMatching(Item sourceItem) {
         log.info("Starting auto-matching for item id {}", sourceItem.getId());
         try {
-            getSmartMatches(sourceItem.getId());
+            List<ItemResponseDto> matches = getSmartMatches(sourceItem.getId());
+            if (matches != null && !matches.isEmpty()) {
+                User userToNotify = sourceItem.getReporter();
+                if (userToNotify != null) {
+                    String message = String.format("AI has found a potential match for your item '%s'. Check the item details to verify!", sourceItem.getTitle());
+                    notificationService.createNotification(userToNotify, message);
+                }
+            }
         } catch (Exception e) {
             log.error("Error during auto matching for item id {}", sourceItem.getId(), e);
         }

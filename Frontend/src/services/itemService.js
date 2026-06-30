@@ -51,6 +51,10 @@ const ItemService = {
 
     resolveItem: async (id) => {
         return await axios.post(`/items/${id}/resolve`);
+    },
+
+    confirmMatch: async (sourceId, matchId) => {
+        return await axios.post(`/items/${sourceId}/confirm-match/${matchId}`);
     }
 };
 
