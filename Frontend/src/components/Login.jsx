@@ -32,7 +32,7 @@ const Login = () => {
             <h2>Sign In</h2>
             {error && <p style={{ color: 'red' }}>{error}</p>}
             
-            <form onSubmit={handleLogin} autoComplete="off">
+            <form onSubmit={handleLogin}>
                 <div className="input-group">
                     <label>Email</label>
                     <input 
@@ -40,7 +40,6 @@ const Login = () => {
                         name="email" 
                         value={credentials.email}
                         onChange={handleChange} 
-                        autoComplete="off"
                         required 
                     />
                 </div>
@@ -52,7 +51,6 @@ const Login = () => {
                         name="password" 
                         value={credentials.password}
                         onChange={handleChange} 
-                        autoComplete="new-password"
                         required 
                     />
                 </div>

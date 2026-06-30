@@ -29,18 +29,18 @@ const Register = () => {
     return (
         <div className="form-card">
             <h2>Create Account</h2>
-            <form onSubmit={handleSubmit} autoComplete="off">
+            <form onSubmit={handleSubmit}>
                 <div className="input-group">
                     <label>Full Name</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} autoComplete="off" required />
+                    <input type="text" name="name" value={formData.name} onChange={handleChange} required />
                 </div>
                 <div className="input-group">
                     <label>Email</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} autoComplete="off" required />
+                    <input type="email" name="email" value={formData.email} onChange={handleChange} required />
                 </div>
                 <div className="input-group">
                     <label>Password</label>
-                    <input type="password" name="password" value={formData.password} onChange={handleChange} autoComplete="new-password" required />
+                    <input type="password" name="password" value={formData.password} onChange={handleChange} required />
                 </div>
                 <button type="submit" className="primary-btn">Sign Up</button>
             </form>
