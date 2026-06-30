@@ -47,6 +47,10 @@ const ItemService = {
 
     markAsFound: async (id, foundData) => {
         return await axios.post(`/items/${id}/found`, foundData);
+    },
+
+    resolveItem: async (id) => {
+        return await axios.post(`/items/${id}/resolve`);
     }
 };
 

@@ -160,10 +160,37 @@ public class ItemService {
                 matchedIds.add(id.asLong());
             }
 
-            return itemRepository.findAllById(matchedIds)
-                    .stream()
+            List<Item> matchedItems = itemRepository.findAllById(matchedIds);
+            List<ItemResponseDto> resultDtos = matchedItems.stream()
                     .map(this::mapToDTO)
                     .collect(Collectors.toList());
+
+            if (!matchedItems.isEmpty()) {
+                for (Item matchItem : matchedItems) {
+                    if (sourceItem.isFound()) {
+                        User lostItemReporter = matchItem.getReporter();
+                        if (lostItemReporter != null) {
+                            String message = String.format("Great news! Your lost item '%s' has been matched with a found item by %s at '%s'. Contact number: %s | Email: %s", 
+                                    matchItem.getTitle(), sourceItem.getReporter().getName(), sourceItem.getLocation(), sourceItem.getContactInfo(), sourceItem.getReporter().getEmail());
+                            notificationService.createNotification(lostItemReporter, message);
+                        }
+                    } else {
+                        User lostItemReporter = sourceItem.getReporter();
+                        User founder = matchItem.getReporter();
+                        String founderEmail = (founder != null) ? founder.getEmail() : "Not available";
+                        String founderName = (founder != null) ? founder.getName() : "Someone";
+                        
+                        String message = String.format("Great news! Your lost item '%s' has been matched with a found item by %s at '%s'. Contact number: %s | Email: %s", 
+                                sourceItem.getTitle(), founderName, matchItem.getLocation(), matchItem.getContactInfo(), founderEmail);
+                        notificationService.createNotification(lostItemReporter, message);
+                    }
+                    itemRepository.deleteById(matchItem.getId());
+                }
+                itemRepository.deleteById(sourceItem.getId());
+                log.info("Smart match successful. Deleted source item {} and matched items.", sourceItem.getId());
+            }
+
+            return resultDtos;
 
         } catch (Exception e) {
             log.error("Failed to parse AI response: {}", response, e);
@@ -245,10 +272,21 @@ public class ItemService {
         notificationService.createNotification(item.getReporter(), message);
 
         ItemResponseDto responseDto = mapToDTO(updated);
-        itemRepository.delete(updated);
-        log.info("Item {} deleted after being manually marked as found", id);
+        // We no longer delete the item here so the owner can verify it.
+        log.info("Item {} marked as found, awaiting owner verification", id);
 
         return responseDto;
+    }
+
+    public void resolveItem(Long id) {
+        log.info("Owner accepted item id {} as resolved, deleting it", id);
+        Item item = itemRepository
+                .findById(id)
+                .orElseThrow(() -> {
+                    log.error("Item not found with id: {}", id);
+                    return new ResourceNotFoundException("Item not found");
+                });
+        itemRepository.delete(item);
     }
 
 
@@ -343,31 +381,7 @@ public class ItemService {
     private void performAutoMatching(Item sourceItem) {
         log.info("Starting auto-matching for item id {}", sourceItem.getId());
         try {
-            List<ItemResponseDto> matches = getSmartMatches(sourceItem.getId());
-            if (matches != null && !matches.isEmpty()) {
-                ItemResponseDto match = matches.get(0);
-
-                if (sourceItem.isFound()) {
-                    User lostItemReporter = userRepository.findById(match.getReporterId()).orElse(null);
-                    if (lostItemReporter != null) {
-                        String message = String.format("Great news! Your lost item '%s' has been found by %s at '%s'. Contact number: %s | Email: %s", 
-                                match.getTitle(), sourceItem.getReporter().getName(), sourceItem.getLocation(), sourceItem.getContactInfo(), sourceItem.getReporter().getEmail());
-                        notificationService.createNotification(lostItemReporter, message);
-                    }
-                } else {
-                    User lostItemReporter = sourceItem.getReporter();
-                    User founder = userRepository.findById(match.getReporterId()).orElse(null);
-                    String founderEmail = (founder != null) ? founder.getEmail() : "Not available";
-                    
-                    String message = String.format("Great news! Your lost item '%s' has been found by %s at '%s'. Contact number: %s | Email: %s", 
-                            sourceItem.getTitle(), match.getReporterName(), match.getLocation(), match.getContactInfo(), founderEmail);
-                    notificationService.createNotification(lostItemReporter, message);
-                }
-
-                itemRepository.deleteById(sourceItem.getId());
-                itemRepository.deleteById(match.getId());
-                log.info("Auto-match successful. Deleted source item {} and matched item {}", sourceItem.getId(), match.getId());
-            }
+            getSmartMatches(sourceItem.getId());
         } catch (Exception e) {
             log.error("Error during auto matching for item id {}", sourceItem.getId(), e);
         }

@@ -96,19 +96,78 @@ const ItemDetail = () => {
         }
     };
 
-    const handleDeleteItem = async () => {
-        if (!window.confirm("Are you sure you want to delete this item?")) return;
-        setLoading(true);
-        try {
-            await ItemService.deleteItem(itemId);
-            toast.success("Item deleted successfully!");
-            navigate('/');
-        } catch (err) {
-            console.error("Error deleting item", err);
-            toast.error("Failed to delete item. Please try again.");
-        } finally {
-            setLoading(false);
-        }
+    const handleDeleteItem = () => {
+        toast((t) => (
+            <div>
+                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Are you sure you want to delete this item?</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            setLoading(true);
+                            try {
+                                await ItemService.deleteItem(itemId);
+                                toast.success("Item deleted successfully!");
+                                navigate('/');
+                            } catch (err) {
+                                console.error("Error deleting item", err);
+                                toast.error("Failed to delete item. Please try again.");
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        className="primary-btn btn-delete"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Delete
+                    </button>
+                    <button 
+                        onClick={() => toast.dismiss(t.id)}
+                        className="primary-btn btn-cancel"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: Infinity });
+    };
+
+    const handleResolveItem = () => {
+        toast((t) => (
+            <div>
+                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Confirm that this item has been recovered?</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            setLoading(true);
+                            try {
+                                await ItemService.resolveItem(itemId);
+                                toast.success("Item resolved successfully!");
+                                navigate('/');
+                            } catch (err) {
+                                console.error("Error resolving item", err);
+                                toast.error("Failed to resolve item. Please try again.");
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        className="primary-btn btn-found"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Accept
+                    </button>
+                    <button 
+                        onClick={() => toast.dismiss(t.id)}
+                        className="primary-btn btn-cancel"
+                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: Infinity });
     };
 
     const handleMessageSubmit = async (e) => {
@@ -228,6 +287,15 @@ const ItemDetail = () => {
                                 className="primary-btn btn-message" 
                             >
                                  Message Owner
+                            </button>
+                        )}
+                        {isReporter && item.found && (
+                            <button 
+                                onClick={handleResolveItem} 
+                                disabled={loading}
+                                className="primary-btn btn-found" 
+                            >
+                                ✅ Accept Found Item
                             </button>
                         )}
                         {isReporter && (

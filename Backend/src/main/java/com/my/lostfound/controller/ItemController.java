@@ -141,4 +141,11 @@ public class ItemController {
         return ResponseEntity.ok("Item deleted successfully");
     }
 
+    @PostMapping("/{id}/resolve")
+    public ResponseEntity<String> resolveItem(@PathVariable Long id) {
+        log.info("Resolving item id: {}", id);
+        itemService.resolveItem(id);
+        return ResponseEntity.ok("Item resolved and deleted successfully");
+    }
+
 }
