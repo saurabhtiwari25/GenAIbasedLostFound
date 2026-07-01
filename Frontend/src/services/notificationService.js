@@ -1,16 +1,16 @@
 import axios from '../api/axiosConfig';
 
 const NotificationService = {
-    getNotifications: async (userId) => {
-        return await axios.get(`/notifications/user/${userId}`);
+    getNotifications: async () => {
+        return await axios.get(`/notifications/me`);
     },
 
-    markNotificationRead: async (notificationId, userId) => {
-        return await axios.put(`/notifications/${notificationId}/read?userId=${userId}`);
+    markNotificationRead: async (notificationId) => {
+        return await axios.put(`/notifications/${notificationId}/read`);
     },
 
-    markAllNotificationsRead: async (userId) => {
-        return await axios.put(`/notifications/user/${userId}/read-all`);
+    markAllNotificationsRead: async () => {
+        return await axios.put(`/notifications/me/read-all`);
     }
 };
 

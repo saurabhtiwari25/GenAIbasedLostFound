@@ -6,8 +6,8 @@ const ItemService = {
         return await axios.get(`/items`);
     },
 
-    getItemsByUser: async (userId) => {
-        return await axios.get(`/items/user/${userId}`);
+    getItemsByUser: async () => {
+        return await axios.get(`/items/me`);
     },
 
     getSmartMatches: async (itemId) => {

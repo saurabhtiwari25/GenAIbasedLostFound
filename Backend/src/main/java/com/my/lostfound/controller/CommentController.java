@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-
 @RestController
 @RequestMapping("/comments")
 @RequiredArgsConstructor
@@ -20,16 +19,14 @@ public class CommentController {
 
     private final CommentService commentService;
 
-
     @PostMapping("/item/{itemId}")
     public ResponseEntity<CommentResponseDto> addComment(
             @PathVariable Long itemId,
             @Valid @RequestBody CommentRequestDto dto) {
-        log.info("Adding comment to item id: {}, by user id: {}", itemId, dto.getAuthorId());
+        log.info("Adding comment to item id: {}", itemId);
         CommentResponseDto response = commentService.addComment(itemId, dto);
         return ResponseEntity.ok(response);
     }
-
 
     @GetMapping("/item/{itemId}")
     public ResponseEntity<List<CommentResponseDto>> getCommentsByItemId(@PathVariable Long itemId) {

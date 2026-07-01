@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ItemService from '../services/itemService';
 import ItemCard from './ItemCard';
 import { useNavigate } from 'react-router-dom';
+import Spinner from './Spinner';
 
 const SearchItem = () => {
     const navigate = useNavigate();
@@ -12,69 +13,35 @@ const SearchItem = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        handleSearch();
-    }, []);
 
-    const handleSearch = async (e) => {
+    const handleSearch = useCallback(async (e) => {
         if (e) e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
-            let response;
-            if (query.trim() !== '') {
-                response = await ItemService.searchItems(query);
-                let fetched = response.data;
-                
-                if (statusFilter !== 'ALL') {
-                    const checkFound = statusFilter === 'FOUND';
-                    fetched = fetched.filter(item => item.found === checkFound);
-                }
-                if (locationInput.trim() !== '') {
-                    fetched = fetched.filter(item => 
-                        item.location.toLowerCase().includes(locationInput.toLowerCase())
-                    );
-                }
-                setItems(fetched);
-            } else if (locationInput.trim() !== '') {
-
-                const isFound = statusFilter === 'FOUND';
-                if (statusFilter === 'ALL') {
-                    const res = await ItemService.getAllItems(0, 100);
-                    let fetched = res.data.content !== undefined ? res.data.content : (res.data || []);
-                    
-                    fetched = fetched.filter(item => 
-                        item.location.toLowerCase().includes(locationInput.toLowerCase())
-                    );
-                    setItems(fetched);
-                } else {
-                    const res = await ItemService.getAllItems(0, 100);
-                    let fetched = res.data.content !== undefined ? res.data.content : (res.data || []);
-                    const checkFound = statusFilter === 'FOUND';
-                    fetched = fetched.filter(item => 
-                        item.found === checkFound && 
-                        item.location.toLowerCase().includes(locationInput.toLowerCase())
-                    );
-                    setItems(fetched);
-                }
-            } else {
-                const res = await ItemService.getAllItems(0, 100);
-                let fetched = res.data.content !== undefined ? res.data.content : (res.data || []);
-                
-                if (statusFilter !== 'ALL') {
-                    const checkFound = statusFilter === 'FOUND';
-                    fetched = fetched.filter(item => item.found === checkFound);
-                }
-                setItems(fetched);
+            const res = query.trim()
+                ? await ItemService.searchItems(query)
+                : await ItemService.getAllItems();
+            
+            let fetched = res.data?.content || res.data || [];
+            
+            if (statusFilter !== 'ALL') {
+                fetched = fetched.filter(i => i.found === (statusFilter === 'FOUND'));
             }
+            if (locationInput.trim()) {
+                fetched = fetched.filter(i =>
+                    i.location.toLowerCase().includes(locationInput.toLowerCase())
+                );
+            }
+            setItems(fetched);
         } catch (err) {
             console.error("Search failed:", err);
             setError("Could not complete the search. Please make sure the backend is connected.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [query, statusFilter, locationInput]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -82,13 +49,13 @@ const SearchItem = () => {
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [query, statusFilter, locationInput]);
+    }, [handleSearch]);
 
     return (
         <div className="search-container">
             <div className="search-header">
                 <h2>Advanced Search & Filter</h2>
-                <p>Find reported items in real-time by keyword, location, and status.</p>
+                <p>Find reported items in real-time by keyword, location and status.</p>
                 
                 <form onSubmit={handleSearch} className="search-form-card">
                     <div className="search-form-grid">
@@ -135,7 +102,7 @@ const SearchItem = () => {
             </div>
 
             <div className="search-results">
-                {loading && <div className="loading-message">Searching items...</div>}
+                {loading && <Spinner message="Searching items..." />}
                 {error && <div className="search-error">{error}</div>}
                 
                 {!loading && items.length === 0 && (

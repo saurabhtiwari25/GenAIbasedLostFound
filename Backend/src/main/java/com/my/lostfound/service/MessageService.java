@@ -12,6 +12,9 @@ import com.my.lostfound.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.my.lostfound.exception.UnauthorizedException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,9 +29,18 @@ public class MessageService {
     private final ItemRepository itemRepository;
 
 
+    private Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return ((User) auth.getPrincipal()).getId();
+    }
+
     @Transactional
     public MessageResponseDto sendMessage(MessageRequestDto request) {
-        User sender = userRepository.findById(request.getSenderId())
+        Long currentUserId = getCurrentUserId();
+        User sender = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sender not found"));
         User receiver = userRepository.findById(request.getReceiverId())
                 .orElseThrow(() -> new ResourceNotFoundException("Receiver not found"));
@@ -49,6 +61,10 @@ public class MessageService {
 
 
     public List<MessageResponseDto> getUserMessages(Long userId) {
+        if (!getCurrentUserId().equals(userId)) {
+            throw new UnauthorizedException("You do not have permission to view these messages");
+        }
+
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -56,7 +72,7 @@ public class MessageService {
         
         return messages.stream()
                 .map(this::mapToResponseDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
 

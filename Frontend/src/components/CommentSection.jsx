@@ -31,8 +31,7 @@ const CommentSection = ({ itemId }) => {
         setLoading(true);
         try {
             const payload = {
-                content: newComment,
-                authorId: user.id
+                content: newComment
             };
             const response = await CommentService.addComment(itemId, payload);
             setComments([...comments, response.data]);

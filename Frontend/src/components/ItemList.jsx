@@ -14,7 +14,7 @@ const ItemList = () => {
     const fetchItems = async () => {
         try {
             const res = await ItemService.getAllItems();
-            setItems(res.data || []);
+            setItems(res.data?.content || res.data || []);
         } catch (err) {
             console.error("Error fetching items", err);
         }

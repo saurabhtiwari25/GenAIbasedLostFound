@@ -79,7 +79,7 @@ const Navbar = ({ theme, toggleTheme }) => {
                     <span style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px' }}>Lost & Found System</span>
                 </h2>
                 <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', letterSpacing: '0.5px', marginTop: '0px' }}>
-                    Powered by A.I. ⚡
+                    Powered by A.I.
                 </span>
             </div>
 

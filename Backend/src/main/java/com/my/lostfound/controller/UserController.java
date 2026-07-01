@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
@@ -20,7 +19,6 @@ public class UserController {
 
     private final UserService userService;
 
-
     @PostMapping("/register")
     public ResponseEntity<UserResponseDto> register(@Valid @RequestBody UserRequestDto dto) {
         log.info("Registering user: {}", dto.getEmail());
@@ -28,14 +26,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
     @PostMapping("/login")
     public ResponseEntity<UserResponseDto> login(@Valid @RequestBody LoginRequestDto dto) {
         log.info("User login attempt: {}", dto.getEmail());
         UserResponseDto response = userService.login(dto);
         return ResponseEntity.ok(response);
     }
-
 
     @GetMapping("/{id}")
     public ResponseEntity<UserResponseDto> getUser(@PathVariable Long id) {

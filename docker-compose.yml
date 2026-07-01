@@ -5,6 +5,8 @@ services:
     container_name: lostfound-db
     environment:
       POSTGRES_DB: lost_found_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
 
     ports:
       - "5432:5432"
@@ -22,8 +24,9 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/lost_found_db
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=pikachu
+      - SPRING_DATASOURCE_PASSWORD=password
       - SPRING_AI_OPENAI_API_KEY=${GROQ_API_KEY:-your_groq_api_key_here}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - db
     volumes:

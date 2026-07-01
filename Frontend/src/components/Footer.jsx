@@ -8,11 +8,13 @@ const Footer = () => {
     const [isOnline, setIsOnline] = useState(true);
 
     useEffect(() => {
+        if (!user) return;
+
         let isMounted = true;
         
         const checkStatus = async () => {
             try {
-                await axios.get('/items?page=0&size=1');
+                await axios.get('/health'); 
                 if (isMounted) setIsOnline(true);
             } catch (error) {
                 if (isMounted) {
@@ -26,13 +28,13 @@ const Footer = () => {
         };
 
         checkStatus();
-        const interval = setInterval(checkStatus, 30000); // Check every 30 seconds
+        const interval = setInterval(checkStatus, 300000);
 
         return () => {
             isMounted = false;
             clearInterval(interval);
         };
-    }, []);
+    }, [user]);
 
     return (
         <footer className="app-footer">

@@ -5,6 +5,8 @@ import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+import com.my.lostfound.exception.BadRequestException;
+import com.my.lostfound.exception.FileStorageException;
 
 import java.io.IOException;
 import java.util.Map;
@@ -18,13 +20,17 @@ public class FileUploadUtil {
     public String saveFile(MultipartFile file) {
 
         if (file.isEmpty()) {
-            throw new RuntimeException("Cannot upload empty file");
+            throw new BadRequestException("Cannot upload empty file");
+        }
+
+        if (file.getSize() > 5 * 1024 * 1024) { // 5MB limit
+            throw new BadRequestException("File size must not exceed 5MB");
         }
 
         String contentType = file.getContentType();
 
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new RuntimeException("Only image files are allowed");
+            throw new BadRequestException("Only image files are allowed");
         }
 
         try {
@@ -40,7 +46,7 @@ public class FileUploadUtil {
 
         } catch (IOException e) {
 
-            throw new RuntimeException("Failed to upload image to Cloudinary", e);
+            throw new FileStorageException("Failed to upload image to Cloudinary", e);
         }
     }
 }

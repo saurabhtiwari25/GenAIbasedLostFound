@@ -6,6 +6,7 @@ import CommentSection from './CommentSection';
 import MessageService from '../services/messageService';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import Spinner from './Spinner';
 
 const ItemDetail = () => {
     const { id } = useParams();
@@ -60,7 +61,7 @@ const ItemDetail = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const payload = { ...editForm, found: item.found, reporterId: user.id };
+            const payload = { ...editForm, found: item.found };
             const response = await ItemService.updateItem(item.id, payload);
             setItem(response.data);
             setShowEditModal(false);
@@ -82,7 +83,7 @@ const ItemDetail = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const payload = { ...foundForm, finderUserId: user.id };
+            const payload = { ...foundForm };
             const response = await ItemService.markAsFound(item.id, payload);
             setItem(response.data);
             setShowFoundModal(false);
@@ -96,30 +97,20 @@ const ItemDetail = () => {
         }
     };
 
-    const handleDeleteItem = () => {
+    const confirmAction = (message, confirmText, confirmClass, actionFn) => {
         toast((t) => (
             <div>
-                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Are you sure you want to delete this item?</p>
+                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>{message}</p>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button 
                         onClick={async () => {
                             toast.dismiss(t.id);
-                            setLoading(true);
-                            try {
-                                await ItemService.deleteItem(itemId);
-                                toast.success("Item deleted successfully!");
-                                navigate('/');
-                            } catch (err) {
-                                console.error("Error deleting item", err);
-                                toast.error("Failed to delete item. Please try again.");
-                            } finally {
-                                setLoading(false);
-                            }
+                            await actionFn();
                         }}
-                        className="primary-btn btn-delete"
+                        className={`primary-btn ${confirmClass}`}
                         style={{ padding: '6px 12px', fontSize: '0.9rem' }}
                     >
-                        Delete
+                        {confirmText}
                     </button>
                     <button 
                         onClick={() => toast.dismiss(t.id)}
@@ -131,79 +122,68 @@ const ItemDetail = () => {
                 </div>
             </div>
         ), { duration: Infinity });
+    };
+
+    const handleDeleteItem = () => {
+        confirmAction(
+            "Are you sure you want to delete this item?",
+            "Delete",
+            "btn-delete",
+            async () => {
+                setLoading(true);
+                try {
+                    await ItemService.deleteItem(itemId);
+                    toast.success("Item deleted successfully!");
+                    navigate('/');
+                } catch (err) {
+                    console.error("Error deleting item", err);
+                    toast.error("Failed to delete item. Please try again.");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        );
     };
 
     const handleResolveItem = () => {
-        toast((t) => (
-            <div>
-                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Confirm that this item has been recovered?</p>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            setLoading(true);
-                            try {
-                                await ItemService.resolveItem(itemId);
-                                toast.success("Item resolved successfully!");
-                                navigate('/');
-                            } catch (err) {
-                                console.error("Error resolving item", err);
-                                toast.error("Failed to resolve item. Please try again.");
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
-                        className="primary-btn btn-found"
-                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
-                    >
-                        Accept
-                    </button>
-                    <button 
-                        onClick={() => toast.dismiss(t.id)}
-                        className="primary-btn btn-cancel"
-                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        ), { duration: Infinity });
+        confirmAction(
+            "Confirm that this item has been recovered?",
+            "Accept",
+            "btn-found",
+            async () => {
+                setLoading(true);
+                try {
+                    await ItemService.resolveItem(itemId);
+                    toast.success("Item resolved successfully!");
+                    navigate('/');
+                } catch (err) {
+                    console.error("Error resolving item", err);
+                    toast.error("Failed to resolve item. Please try again.");
+                } finally {
+                    setLoading(false);
+                }
+            }
+        );
     };
 
     const handleConfirmMatch = (matchId) => {
-        toast((t) => (
-            <div>
-                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>Confirm this is an exact match? Both items will be resolved.</p>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            setLoadingMatches(true);
-                            try {
-                                await ItemService.confirmMatch(itemId, matchId);
-                                toast.success("Match confirmed successfully!");
-                                navigate('/');
-                            } catch (err) {
-                                console.error("Error confirming match", err);
-                                toast.error("Failed to confirm match.");
-                                setLoadingMatches(false);
-                            }
-                        }}
-                        className="primary-btn btn-ai"
-                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
-                    >
-                        Confirm
-                    </button>
-                    <button 
-                        onClick={() => toast.dismiss(t.id)}
-                        className="primary-btn btn-cancel"
-                        style={{ padding: '6px 12px', fontSize: '0.9rem' }}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        ), { duration: Infinity });
+        confirmAction(
+            "Confirm this is an exact match? Both items will be resolved.",
+            "Confirm",
+            "btn-ai",
+            async () => {
+                setLoadingMatches(true);
+                try {
+                    await ItemService.confirmMatch(itemId, matchId);
+                    toast.success("Match confirmed successfully!");
+                    navigate('/');
+                } catch (err) {
+                    console.error("Error confirming match", err);
+                    toast.error("Failed to confirm match.");
+                    setLoadingMatches(false);
+                }
+            }
+        );
     };
 
     const handleMessageSubmit = async (e) => {
@@ -211,7 +191,6 @@ const ItemDetail = () => {
         setLoading(true);
         try {
             const payload = {
-                senderId: user.id,
                 receiverId: item.reporterId,
                 itemId: item.id,
                 content: msgContent
@@ -242,9 +221,9 @@ const ItemDetail = () => {
         }
     };
 
-    if (!item) return <div className="container">Loading...</div>;
+    if (!item) return <div className="container"><Spinner message="Loading item details..." /></div>;
 
-    const isReporter = user && user.id == item.reporterId;
+    const isReporter = user && String(user.id) === String(item.reporterId);
     const canMarkFound = user && !isReporter && !item.found;
 
     return (
@@ -306,7 +285,7 @@ const ItemDetail = () => {
                                 onClick={openEditModal} 
                                 className="primary-btn btn-edit" 
                             >
-                                ✏️ Edit Item
+                                Edit Item
                             </button>
                         )}
                         {canMarkFound && (
@@ -314,7 +293,7 @@ const ItemDetail = () => {
                                 onClick={() => setShowFoundModal(true)} 
                                 className="primary-btn btn-found" 
                             >
-                                🔍 I Found This!
+                                I Found This
                             </button>
                         )}
                         {user && !isReporter && (
@@ -331,7 +310,7 @@ const ItemDetail = () => {
                                 disabled={loading}
                                 className="primary-btn btn-found" 
                             >
-                                ✅ Accept Found Item
+                                Accept Found Item
                             </button>
                         )}
                         {isReporter && (

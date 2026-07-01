@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 
 @Service
@@ -19,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
 
     @Transactional
@@ -34,13 +37,16 @@ public class UserService {
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
 
-        user.setPassword(dto.getPassword());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         User savedUser = userRepository.save(user);
 
         log.info("User registered successfully with id: {}", savedUser.getId());
 
-        return mapToResponseDto(savedUser);
+        UserResponseDto responseDto = mapToResponseDto(savedUser);
+        String token = jwtService.generateToken(savedUser.getEmail(), savedUser.getId());
+        responseDto.setAccessToken(token);
+        return responseDto;
     }
 
 
@@ -53,14 +59,17 @@ public class UserService {
                     return new ResourceNotFoundException("User not found");
                 });
 
-        if (!dto.getPassword().equals(user.getPassword())) {
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             log.warn("Login failed: Invalid password for email {}", dto.getEmail());
             throw new BadRequestException("Invalid password");
         }
 
         log.info("User logged in successfully: {}", user.getId());
 
-        return mapToResponseDto(user);
+        UserResponseDto responseDto = mapToResponseDto(user);
+        String token = jwtService.generateToken(user.getEmail(), user.getId());
+        responseDto.setAccessToken(token);
+        return responseDto;
     }
 
 

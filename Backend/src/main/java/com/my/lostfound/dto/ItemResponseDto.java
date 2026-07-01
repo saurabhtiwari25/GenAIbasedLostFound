@@ -3,7 +3,6 @@ package com.my.lostfound.dto;
 import lombok.*;
 import java.time.LocalDateTime;
 
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

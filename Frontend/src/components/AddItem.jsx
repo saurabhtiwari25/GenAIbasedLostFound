@@ -36,7 +36,7 @@ const AddItem = () => {
                 return;
             }
 
-            const itemToSubmit = { ...item, reporterId: user.id };
+            const itemToSubmit = { ...item };
             const response = await ItemService.createItem(itemToSubmit);
             const newItemId = response.data.id;
 

@@ -7,10 +7,14 @@ import com.my.lostfound.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.my.lostfound.exception.ResourceNotFoundException;
+import com.my.lostfound.exception.UnauthorizedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 
 @Service
@@ -19,6 +23,14 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+
+    private Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return ((User) auth.getPrincipal()).getId();
+    }
 
 
     @Transactional
@@ -33,11 +45,14 @@ public class NotificationService {
 
 
     public List<NotificationResponseDto> getUserNotifications(Long userId) {
+        if (!getCurrentUserId().equals(userId)) {
+            throw new UnauthorizedException("You do not have permission to view these notifications");
+        }
         log.info("Fetching notifications for user id: {}", userId);
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(this::mapToDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
 
@@ -47,11 +62,11 @@ public class NotificationService {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> {
                     log.error("Notification not found with id: {}", notificationId);
-                    return new RuntimeException("Notification not found");
+                    return new ResourceNotFoundException("Notification not found");
                 });
         
         if (!notification.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedException("Unauthorized");
         }
         
         notification.setRead(true);

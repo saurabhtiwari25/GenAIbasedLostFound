@@ -1,4 +1,4 @@
-package com.my.lostfound.config;
+package com.my.lostfound.util;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;

@@ -20,7 +20,7 @@ const Login = () => {
 
         try {
             const response = await UserService.login(credentials);
-            login(response.data.id, response.data.name); 
+            login(response.data.id, response.data.name, response.data.accessToken); 
             navigate('/'); 
         } catch (err) {
             setError('Invalid email or password. Please try again.');
@@ -32,7 +32,7 @@ const Login = () => {
             <h2>Sign In</h2>
             {error && <p style={{ color: 'red' }}>{error}</p>}
             
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleLogin} autoComplete="on">
                 <div className="input-group">
                     <label>Email</label>
                     <input 
@@ -40,6 +40,7 @@ const Login = () => {
                         name="email" 
                         value={credentials.email}
                         onChange={handleChange} 
+                        autoComplete="email"
                         required 
                     />
                 </div>
@@ -51,6 +52,7 @@ const Login = () => {
                         name="password" 
                         value={credentials.password}
                         onChange={handleChange} 
+                        autoComplete="current-password"
                         required 
                     />
                 </div>

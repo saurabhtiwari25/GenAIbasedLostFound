@@ -2,7 +2,6 @@ package com.my.lostfound.dto;
 
 import lombok.Data;
 
-
 @Data
 public class UserResponseDto {
 
@@ -11,4 +10,6 @@ public class UserResponseDto {
     private String name;
 
     private String email;
+
+    private String accessToken;
 }

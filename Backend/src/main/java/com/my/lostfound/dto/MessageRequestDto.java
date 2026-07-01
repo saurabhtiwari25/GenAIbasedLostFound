@@ -7,15 +7,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class MessageRequestDto {
-
-    @NotNull(message = "Sender ID is required")
-    private Long senderId;
 
     @NotNull(message = "Receiver ID is required")
     private Long receiverId;

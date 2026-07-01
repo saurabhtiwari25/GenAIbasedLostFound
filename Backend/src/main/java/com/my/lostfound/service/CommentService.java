@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.my.lostfound.exception.UnauthorizedException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,15 +30,24 @@ public class CommentService {
     private final UserRepository userRepository;
 
 
+    private Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return ((User) auth.getPrincipal()).getId();
+    }
+
     public CommentResponseDto addComment(Long itemId, CommentRequestDto dto) {
-        log.info("Adding comment to item id: {} by user id: {}", itemId, dto.getAuthorId());
+        Long currentUserId = getCurrentUserId();
+        log.info("Adding comment to item id: {} by user id: {}", itemId, currentUserId);
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> {
                     log.error("Item not found with id: {}", itemId);
                     return new ResourceNotFoundException("Item not found");
                 });
 
-        User author = userRepository.findById(dto.getAuthorId())
+        User author = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Comment comment = Comment.builder()
@@ -56,7 +68,7 @@ public class CommentService {
         return commentRepository.findByItemIdOrderByCreatedAtAsc(itemId)
                 .stream()
                 .map(this::mapToDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
 

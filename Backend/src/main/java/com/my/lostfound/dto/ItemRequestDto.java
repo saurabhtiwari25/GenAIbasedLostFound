@@ -12,7 +12,7 @@ import lombok.*;
 public class ItemRequestDto {
 
     @NotBlank(message = "Title cannot be empty")
-    @Size(min = 2, max = 100, message = "Title must be 3 to 100 characters")
+    @Size(min = 2, max = 100, message = "Title must be 2 to 100 characters")
     private String title;
 
     @NotBlank(message = "Description cannot be empty")
@@ -26,8 +26,5 @@ public class ItemRequestDto {
 
     @NotBlank(message = "Contact info cannot be empty")
     private String contactInfo;
-
-    @jakarta.validation.constraints.NotNull(message = "Reporter ID cannot be null")
-    private Long reporterId;
 
 }

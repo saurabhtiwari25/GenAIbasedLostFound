@@ -5,6 +5,9 @@ import com.my.lostfound.dto.ItemResponseDto;
 import com.my.lostfound.dto.MarkFoundRequestDto;
 import com.my.lostfound.entity.Item;
 import com.my.lostfound.exception.ResourceNotFoundException;
+import com.my.lostfound.exception.UnauthorizedException;
+import com.my.lostfound.exception.ForbiddenException;
+import com.my.lostfound.exception.BadRequestException;
 import com.my.lostfound.repository.ItemRepository;
 import com.my.lostfound.util.FileUploadUtil;
 import com.my.lostfound.entity.User;
@@ -19,8 +22,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,24 +38,46 @@ import java.util.concurrent.CompletableFuture;
 
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ItemService {
 
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final FileUploadUtil fileUploadUtil;
-    private final ChatClient.Builder chatClientBuilder;
+    private final ChatClient chatClient;
     private final NotificationService notificationService;
 
+    public ItemService(ItemRepository itemRepository,
+                       UserRepository userRepository,
+                       FileUploadUtil fileUploadUtil,
+                       ChatClient.Builder chatClientBuilder,
+                       NotificationService notificationService) {
+        this.itemRepository = itemRepository;
+        this.userRepository = userRepository;
+        this.fileUploadUtil = fileUploadUtil;
+        this.chatClient = chatClientBuilder.build();
+        this.notificationService = notificationService;
+    }
 
+    private record MatchResponse(List<Long> matchedIds) {}
+
+    private Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        return ((User) auth.getPrincipal()).getId();
+    }
+
+    @Transactional
     public ItemResponseDto createItem(ItemRequestDto dto) {
 
         log.info("Creating item: {}", dto.getTitle());
 
-        User reporter = userRepository.findById(dto.getReporterId())
+        Long currentUserId = getCurrentUserId();
+        User reporter = userRepository.findById(currentUserId)
                 .orElseThrow(() -> {
-                    log.error("Reporter not found with id: {}", dto.getReporterId());
+                    log.error("Reporter not found with id: {}", currentUserId);
                     return new ResourceNotFoundException("Reporter not found");
                 });
 
@@ -66,27 +97,24 @@ public class ItemService {
         return mapToDTO(saved);
     }
 
-
-    public List<ItemResponseDto> getAllItems() {
+    public Page<ItemResponseDto> getAllItems(Pageable pageable) {
 
         log.info("Fetching all items");
 
-        List<Item> items =
-                itemRepository.findAll();
+        Page<Item> items =
+                itemRepository.findAll(pageable);
 
-        return items.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return items.map(this::mapToDTO);
     }
 
-
-    public List<ItemResponseDto> getItemsByUser(Long userId) {
+    public Page<ItemResponseDto> getItemsByUser(Long userId, Pageable pageable) {
         log.info("Fetching items for user id {}", userId);
 
-        List<Item> items =
-                itemRepository.findByReporterId(userId);
+        Page<Item> items =
+                itemRepository.findByReporterId(userId, pageable);
 
-        return items.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return items.map(this::mapToDTO);
     }
-
 
     public List<ItemResponseDto> getSmartMatches(Long itemId) {
         log.info("Finding smart matches for item id {}", itemId);
@@ -96,7 +124,10 @@ public class ItemService {
                     log.error("Item not found with id: {}", itemId);
                     return new ResourceNotFoundException("Item not found");
                 });
+        return getSmartMatches(sourceItem);
+    }
 
+    private List<ItemResponseDto> getSmartMatches(Item sourceItem) {
         List<Item> candidateItems;
         String sourceType;
         String candidateType;
@@ -124,12 +155,7 @@ public class ItemService {
                 "You are an intelligent Lost and Found matching assistant. " +
                 "I have a %s item: Title: '%s', Description: '%s', Location: '%s'. " +
                 "Here is a list of all %s items:\n%s\n" +
-                "Based on the title, description, and location, determine which %s items are highly probable matches. " +
-                "Return ONLY valid JSON in the following format:\n" +
-                "{\"matchedIds\":[2,5,7]}\n" +
-                "If there are no matches, return:\n" +
-                "{\"matchedIds\":[]}\n" +
-                "Do not include explanations, markdown, labels, or any extra text.",
+                "Based on the title, description, and location, determine which %s items are highly probable matches.",
                 sourceType,
                 sourceItem.getTitle(),
                 sourceItem.getDescription(),
@@ -139,46 +165,41 @@ public class ItemService {
                 candidateType
         );
 
-        String response = chatClientBuilder.build().prompt()
-                .user(promptText)
-                .call()
-                .content();
-
-        log.info("LLM Response for smart matches: {}", response);
-
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(response);
-            JsonNode idsNode = root.get("matchedIds");
+            MatchResponse response = chatClient.prompt()
+                    .user(promptText)
+                    .call()
+                    .entity(MatchResponse.class);
 
-            if (idsNode == null || !idsNode.isArray()) {
+            if (response == null || response.matchedIds() == null || response.matchedIds().isEmpty()) {
                 return List.of();
             }
 
-            List<Long> matchedIds = new ArrayList<>();
-            for (JsonNode id : idsNode) {
-                matchedIds.add(id.asLong());
-            }
+            log.info("LLM Response matched IDs: {}", response.matchedIds());
 
-            List<Item> matchedItems = itemRepository.findAllById(matchedIds);
-            List<ItemResponseDto> resultDtos = matchedItems.stream()
+            List<Item> matchedItems = itemRepository.findAllById(response.matchedIds());
+            return matchedItems.stream()
                     .map(this::mapToDTO)
-                    .collect(Collectors.toList());
-
-            return resultDtos;
+                    .toList();
 
         } catch (Exception e) {
-            log.error("Failed to parse AI response: {}", response, e);
+            log.error("Failed to get smart matches", e);
             return List.of();
         }
     }
 
+    @Transactional
     public void confirmMatch(Long sourceId, Long matchId) {
         log.info("User confirmed match between source {} and match {}", sourceId, matchId);
         Item sourceItem = itemRepository.findById(sourceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Source item not found"));
         Item matchItem = itemRepository.findById(matchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Matched item not found"));
+
+        Long currentUserId = getCurrentUserId();
+        if (!sourceItem.getReporter().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Only the original reporter can confirm a match for this item");
+        }
 
         if (sourceItem.isFound()) {
             User lostItemReporter = matchItem.getReporter();
@@ -203,7 +224,6 @@ public class ItemService {
         log.info("Confirmed match successful. Deleted source item {} and matched item {}", sourceId, matchId);
     }
 
-
     public ItemResponseDto getItemById(Long id) {
 
         log.info("Getting item id {}", id);
@@ -218,7 +238,6 @@ public class ItemService {
         return mapToDTO(item);
     }
 
-
     public ItemResponseDto updateItem(Long id, ItemRequestDto dto) {
 
         log.info("Updating item id {}", id);
@@ -230,8 +249,9 @@ public class ItemService {
                     return new ResourceNotFoundException("Item not found");
                 });
 
-        if (!item.getReporter().getId().equals(dto.getReporterId())) {
-            throw new RuntimeException("Only the original reporter can edit this item");
+        Long currentUserId = getCurrentUserId();
+        if (!item.getReporter().getId().equals(currentUserId)) {
+            throw new ForbiddenException("Only the original reporter can edit this item");
         }
 
         item.setTitle(dto.getTitle());
@@ -245,10 +265,11 @@ public class ItemService {
         return mapToDTO(updated);
     }
 
-
+    @Transactional
     public ItemResponseDto markAsFound(Long id, MarkFoundRequestDto dto) {
 
-        log.info("Marking item id {} as found by user {}", id, dto.getFinderUserId());
+        Long currentUserId = getCurrentUserId();
+        log.info("Marking item id {} as found by user {}", id, currentUserId);
 
         Item item = itemRepository
                 .findById(id)
@@ -257,8 +278,12 @@ public class ItemService {
                     return new ResourceNotFoundException("Item not found");
                 });
 
+        if (item.getReporter().getId().equals(currentUserId)) {
+            throw new BadRequestException("You cannot mark your own item as found");
+        }
+
         if (item.isFound()) {
-            throw new RuntimeException("This item is already marked as found");
+            throw new BadRequestException("This item is already marked as found");
         }
 
         item.setFound(true);
@@ -268,7 +293,7 @@ public class ItemService {
 
         Item updated = itemRepository.save(item);
 
-        User finder = userRepository.findById(dto.getFinderUserId()).orElse(null);
+        User finder = userRepository.findById(currentUserId).orElse(null);
         String finderEmail = (finder != null) ? finder.getEmail() : "Not available";
 
         String message = String.format(
@@ -277,63 +302,53 @@ public class ItemService {
         notificationService.createNotification(item.getReporter(), message);
 
         ItemResponseDto responseDto = mapToDTO(updated);
-        // We no longer delete the item here so the owner can verify it.
         log.info("Item {} marked as found, awaiting owner verification", id);
 
         return responseDto;
     }
 
-    public void resolveItem(Long id) {
-        log.info("Owner accepted item id {} as resolved, deleting it", id);
+    private void deleteItemInternal(Long id, String logMessage, String errorMessage) {
+        log.info(logMessage, id);
         Item item = itemRepository
                 .findById(id)
                 .orElseThrow(() -> {
                     log.error("Item not found with id: {}", id);
                     return new ResourceNotFoundException("Item not found");
                 });
+
+        Long currentUserId = getCurrentUserId();
+        if (!item.getReporter().getId().equals(currentUserId)) {
+            throw new ForbiddenException(errorMessage);
+        }
         itemRepository.delete(item);
     }
 
+    public void resolveItem(Long id) {
+        deleteItemInternal(id, "Owner accepted item id {} as resolved, deleting it", "Only the original reporter can resolve this item");
+    }
 
     public void deleteItem(Long id) {
-
-        log.info("Hard deleting item id {}", id);
-
-        Item item = itemRepository
-                .findById(id)
-                .orElseThrow(() -> {
-                    log.error("Item not found with id: {}", id);
-                    return new ResourceNotFoundException("Item not found");
-                });
-
-        itemRepository.delete(item);
+        deleteItemInternal(id, "Hard deleting item id {}", "Only the original reporter can delete this item");
     }
 
-
-    public List<ItemResponseDto> searchByTitle(String keyword) {
+    public Page<ItemResponseDto> searchByTitle(String keyword, Pageable pageable) {
 
         log.info("Searching items: {}", keyword);
 
         return itemRepository
-                .findByTitleContainingIgnoreCase(keyword)
-                .stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .findByTitleContainingIgnoreCase(keyword, pageable)
+                .map(this::mapToDTO);
     }
 
-
-    public List<ItemResponseDto> filterItems(String location, boolean found) {
+    public Page<ItemResponseDto> filterItems(String location, boolean found, Pageable pageable) {
 
         log.info("Filtering items by location '{}' and found={}",
                 location, found);
 
         return itemRepository
-                .findByLocationAndFound(location, found)
-                .stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+                .findByLocationAndFound(location, found, pageable)
+                .map(this::mapToDTO);
     }
-
 
     public String uploadImage(Long id, MultipartFile file) {
 
@@ -342,7 +357,7 @@ public class ItemService {
         if (file.getContentType() == null ||
                 !file.getContentType().startsWith("image/")) {
 
-            throw new RuntimeException("Only image files are allowed");
+            throw new BadRequestException("Only image files are allowed");
         }
 
         Item item = itemRepository
@@ -360,7 +375,6 @@ public class ItemService {
 
         return path;
     }
-
 
     private ItemResponseDto mapToDTO(Item item) {
 
@@ -382,11 +396,10 @@ public class ItemService {
                 .build();
     }
 
-
-    private void performAutoMatching(Item sourceItem) {
+    public void performAutoMatching(Item sourceItem) {
         log.info("Starting auto-matching for item id {}", sourceItem.getId());
         try {
-            List<ItemResponseDto> matches = getSmartMatches(sourceItem.getId());
+            List<ItemResponseDto> matches = getSmartMatches(sourceItem);
             if (matches != null && !matches.isEmpty()) {
                 User userToNotify = sourceItem.getReporter();
                 if (userToNotify != null) {

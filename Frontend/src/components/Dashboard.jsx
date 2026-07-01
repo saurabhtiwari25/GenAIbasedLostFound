@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import ItemService from '../services/itemService';
 import NotificationService from '../services/notificationService';
 import MessageService from '../services/messageService';
+import Spinner from './Spinner';
 import { AuthContext } from '../context/AuthContext';
 import ItemCard from './ItemCard';
 import { useNavigate } from 'react-router-dom';
@@ -17,57 +18,62 @@ const Dashboard = () => {
     const [messages, setMessages] = useState([]);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [activeConversation, setActiveConversation] = useState(null);
-    const [replyContent, setReplyContent] = useState('');
+    const [replyContents, setReplyContents] = useState({});
+
+    const handleReplyChange = (convKey, value) => {
+        setReplyContents(prev => ({ ...prev, [convKey]: value }));
+    };
 
     useEffect(() => {
-        if (user && user.id) {
-            fetchUserItems();
-            fetchNotifications();
-            fetchMessages();
-        } else {
+        if (!user || !user.id) {
             navigate('/login');
+            return;
         }
-    }, [user]);
 
-    const fetchUserItems = async () => {
-        setLoading(true);
-        try {
-            const response = await ItemService.getItemsByUser(user.id);
-            setItems(response.data || []);
-        } catch (err) {
-            console.error("Error fetching user items", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+        const fetchUserItems = async () => {
+            setLoading(true);
+            try {
+                const response = await ItemService.getItemsByUser();
+                setItems(response.data?.content || response.data || []);
+            } catch (err) {
+                console.error("Error fetching user items", err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const fetchNotifications = async () => {
-        setLoadingNotif(true);
-        try {
-            const response = await NotificationService.getNotifications(user.id);
-            setNotifications(response.data);
-        } catch (err) {
-            console.error("Error fetching notifications", err);
-        } finally {
-            setLoadingNotif(false);
-        }
-    };
+        const fetchNotifications = async () => {
+            setLoadingNotif(true);
+            try {
+                const response = await NotificationService.getNotifications();
+                setNotifications(response.data);
+            } catch (err) {
+                console.error("Error fetching notifications", err);
+            } finally {
+                setLoadingNotif(false);
+            }
+        };
 
-    const fetchMessages = async () => {
-        setLoadingMessages(true);
-        try {
-            const response = await MessageService.getUserMessages(user.id);
-            setMessages(response.data);
-        } catch (err) {
-            console.error("Error fetching messages", err);
-        } finally {
-            setLoadingMessages(false);
-        }
-    };
+        const fetchMessages = async () => {
+            setLoadingMessages(true);
+            try {
+                const response = await MessageService.getUserMessages();
+                setMessages(response.data);
+            } catch (err) {
+                console.error("Error fetching messages", err);
+            } finally {
+                setLoadingMessages(false);
+            }
+        };
+
+        fetchUserItems();
+        fetchNotifications();
+        fetchMessages();
+    }, [user, navigate]);
 
     const handleMarkAllRead = async () => {
         try {
-            await NotificationService.markAllNotificationsRead(user.id);
+            await NotificationService.markAllNotificationsRead();
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
         } catch (err) {
             console.error("Error marking all as read", err);
@@ -76,7 +82,7 @@ const Dashboard = () => {
 
     const handleMarkRead = async (notifId) => {
         try {
-            await NotificationService.markNotificationRead(notifId, user.id);
+            await NotificationService.markNotificationRead(notifId);
             setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
         } catch (err) {
             console.error("Error marking notification as read", err);
@@ -106,18 +112,18 @@ const Dashboard = () => {
 
     const handleReplySubmit = async (e, conv) => {
         e.preventDefault();
-        if (!replyContent.trim()) return;
+        const content = replyContents[conv.key] || '';
+        if (!content.trim()) return;
         
         try {
             const payload = {
-                senderId: user.id,
                 receiverId: conv.otherUserId,
                 itemId: conv.itemId,
-                content: replyContent
+                content: content
             };
             const response = await MessageService.sendMessage(payload);
             setMessages(prev => [...prev, response.data]);
-            setReplyContent('');
+            setReplyContents(prev => ({ ...prev, [conv.key]: '' }));
         } catch (err) {
             console.error("Error sending reply", err);
             toast.error("Failed to send reply");
@@ -183,7 +189,7 @@ const Dashboard = () => {
             <div className="dashboard-body">
                 <div className="dashboard-main">
                     {loading ? (
-                        <div className="loading-message">Loading your items...</div>
+                        <Spinner message="Loading your items..." />
                     ) : items.length === 0 ? (
                         <div className="empty-state">
                             <h3>You haven't reported any items yet.</h3>
@@ -204,7 +210,7 @@ const Dashboard = () => {
                 <div className="messages-panel">
                     <h3>✉️ Inbox ({conversationList.length})</h3>
                     {loadingMessages ? (
-                        <p>Loading messages...</p>
+                        <Spinner message="Loading messages..." />
                     ) : conversationList.length === 0 ? (
                         <p className="muted">No messages yet.</p>
                     ) : (
@@ -233,10 +239,10 @@ const Dashboard = () => {
                                                 <input 
                                                     type="text" 
                                                     placeholder="Type your reply..." 
-                                                    value={replyContent}
-                                                    onChange={(e) => setReplyContent(e.target.value)}
+                                                    value={replyContents[conv.key] || ''}
+                                                    onChange={(e) => handleReplyChange(conv.key, e.target.value)}
                                                 />
-                                                <button type="submit" disabled={!replyContent.trim()}>Send</button>
+                                                <button type="submit" disabled={!(replyContents[conv.key] || '').trim()}>Send</button>
                                             </form>
                                         </div>
                                     )}

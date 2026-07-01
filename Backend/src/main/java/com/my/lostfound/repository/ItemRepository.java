@@ -1,6 +1,8 @@
 package com.my.lostfound.repository;
 
 import com.my.lostfound.entity.Item;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.lang.NonNull;
@@ -8,21 +10,20 @@ import org.springframework.lang.NonNull;
 import java.util.List;
 import java.util.Optional;
 
-
 public interface ItemRepository extends JpaRepository<Item, Long> {
 
     @NonNull
     @EntityGraph(attributePaths = {"reporter"})
-    List<Item> findAll();
+    Page<Item> findAll(@NonNull Pageable pageable);
 
     @EntityGraph(attributePaths = {"reporter"})
-    List<Item> findByTitleContainingIgnoreCase(String keyword);
+    Page<Item> findByTitleContainingIgnoreCase(String keyword, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reporter"})
-    List<Item> findByLocationAndFound(String location, boolean found);
+    Page<Item> findByLocationAndFound(String location, boolean found, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reporter"})
-    List<Item> findByReporterId(Long reporterId);
+    Page<Item> findByReporterId(Long reporterId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reporter"})
     List<Item> findByFoundTrue();

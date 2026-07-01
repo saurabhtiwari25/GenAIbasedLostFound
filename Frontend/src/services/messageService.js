@@ -1,15 +1,15 @@
-import axios from 'axios';
+import axios from '../api/axiosConfig';
 
 const API_URL = '/messages';
 
-class MessageService {
-    sendMessage(messageData) {
+const MessageService = {
+    sendMessage: (messageData) => {
         return axios.post(API_URL, messageData);
-    }
+    },
 
-    getUserMessages(userId) {
-        return axios.get(`${API_URL}/user/${userId}`);
+    getUserMessages: () => {
+        return axios.get(`${API_URL}/me`);
     }
-}
+};
 
-export default new MessageService();
+export default MessageService;

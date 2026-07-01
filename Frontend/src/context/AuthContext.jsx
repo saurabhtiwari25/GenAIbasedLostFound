@@ -6,22 +6,30 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
 
     useEffect(() => {
-        const savedUserId = localStorage.getItem("userId");
         const savedUserName = localStorage.getItem("userName");
-        if (savedUserId && savedUserName) {
-            setUser({ id: savedUserId, name: savedUserName });
+        const token = localStorage.getItem("accessToken");
+        if (savedUserName && token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                setUser({ id: payload.userId, name: savedUserName });
+            } catch (e) {
+                console.error("Invalid token", e);
+                setUser(null);
+            }
         }
     }, []);
 
-    const login = (id, name) => {
-        localStorage.setItem("userId", id);
+    const login = (id, name, token) => {
         localStorage.setItem("userName", name);
+        if (token) {
+            localStorage.setItem("accessToken", token);
+        }
         setUser({ id, name });
     };
 
     const logout = () => {
-        localStorage.removeItem("userId");
         localStorage.removeItem("userName");
+        localStorage.removeItem("accessToken");
         setUser(null);
     };
 
